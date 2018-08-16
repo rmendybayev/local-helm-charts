@@ -1,0 +1,69 @@
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: {{ template "streamsets.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ template "streamsets.fullname" . }}
+    chart: {{ template "streamsets.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  serviceName: {{ template "streamsets.name" . }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ template "streamsets.name" . }}
+        k8s-app: {{ template "streamsets.name" . }}
+        kubernetes.io/cluster-service: "true"
+      annotations:
+        pod.beta.kubernetes.io/init-containers: '[
+          {
+            "name": "init-datacollector-data",
+            "image": "busybox",
+            "command": ["sh", "-c", "chown -R 20159 /data /opt/streamsets-datacollector/streamsets-libs"],
+            "volumeMounts": [
+              {"name": "efs", "mountPath": "/data", "subPath": "data"},
+              {"name": "efs", "mountPath": "/opt/streamsets-datacollector/streamsets-libs", "subPath": "stagelibs"}
+            ]
+          }
+        ]'
+    spec:
+      terminationGracePeriodSeconds: 10
+      imagePullSecrets:
+      - name: {{ .Values.regcred }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 18630
+          name: ui
+        readinessProbe:
+          exec:
+            command: ["curl", "127.0.0.1:18630/public-rest/ping"]
+        volumeMounts:
+        - name: data
+          mountPath: /data
+          #subPath: data
+        - name: main-config
+          mountPath: /etc/sdc/sdc.properties
+          subPath: sdc.properties
+        #- name: output
+        #  mountPath: /mnt
+        #  subPath: mnt
+      volumes:
+      - name: main-config
+        configMap:
+          defaultMode: 0664
+          name: {{ template "streamsets.fullname" . }}-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ template "streamsets.fullname" . }}-pvc
+      #- name: output
+      #  persistentVolumeClaim:
+      #    claimName: {{ template "streamsets.fullname" . }}-pvc
