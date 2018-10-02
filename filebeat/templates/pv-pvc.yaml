@@ -1,0 +1,30 @@
+{{ if eq .Values.storage "local" }}
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: {{ template "filebeat.releasename" . }}-pv
+  namespace: {{ .Values.namespace }}
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  claimRef:
+    namespace: {{ .Values.namespace }}
+    name: {{ template "filebeat.releasename" . }}-local-source-pvc
+  hostPath:
+    path: {{ .Values.local.path }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "filebeat.releasename" . }}-local-source-pvc
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 512Mi
+  {{ end }}

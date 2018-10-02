@@ -1,0 +1,74 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: {{ template "filebeat.releasename" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    k8s-app: filebeat
+    kubernetes.io/cluster-service: "true"
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  replicas: 1
+  serviceName: {{ template "filebeat.releasename" . }}
+  {{ if eq .Values.storage "efs" }}
+  volumeClaimTemplates:
+  - metadata:
+      name: {{ template "filebeat.fullname" . }}-efs
+      annotations:
+        volume.beta.kubernetes.io/storage-class: aws-efs
+    spec:
+      accessModes: [ "ReadWriteMany" ]
+      resources:
+        requests:
+          storage: 1Gi
+    {{ end }}
+  template:
+    metadata:
+      labels:
+        k8s-app: {{ template "filebeat.releasename" . }}
+        kubernetes.io/cluster-service: "true"
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: {{ template "filebeat.releasename" . }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        args: [
+          "-c", "/etc/filebeat.yml",
+          "-e",
+        ]
+        securityContext:
+          runAsUser: 0
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/filebeat.yml
+          readOnly: true
+          subPath: filebeat.yml
+        - name: config
+          mountPath: /usr/share/filebeat/filebeat.yml
+          readOnly: true
+          subPath: filebeat.yml
+        {{ if ne .Values.storage "local" }}- name: data
+          mountPath: /usr/share/filebeat/data
+          subPath: {{ template "filebeat.releasename" . }}-data{{ end }}
+        - name: source
+          mountPath: /{{ .Release.Name }}
+      volumes:
+      - name: config
+        configMap:
+          defaultMode: 0600
+          name: {{ template "filebeat.releasename" . }}
+      {{ if ne .Values.storage "local" }}
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ template "filebeat.releasename" . }}-{{ if eq .Values.storage "efs" }}efs{{ else }}nfs{{end}}-registry-pvc
+      {{ end }}
+      - name: source
+        persistentVolumeClaim:
+          claimName: {{ template "filebeat.releasename" . }}-{{ if eq .Values.storage "efs" }}efs{{ else if eq .Values.storage "local" }}local{{ else }}nfs{{end}}-source-pvc
