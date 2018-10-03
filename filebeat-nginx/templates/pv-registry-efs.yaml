@@ -1,0 +1,33 @@
+{{ if eq .Values.storage "efs" }}
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: {{ template "filebeat.releasename" . }}-efs-registry-pv
+  namespace: {{ .Values.namespace }}
+spec:
+  storageClassName: aws-efs
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  claimRef:
+    namespace: {{ .Values.namespace }}
+    name: {{ template "filebeat.releasename" . }}-efs-registry-pvc
+  nfs:
+    server: fs-808529c8.efs.us-east-1.amazonaws.com
+    path: {{ .Values.registry }}/{{ .Release.Name }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "filebeat.releasename" . }}-efs-registry-pvc
+  namespace: {{ .Values.namespace }}
+spec:
+  storageClassName: aws-efs
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 512Mi
+{{ end }}

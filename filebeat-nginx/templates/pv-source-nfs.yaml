@@ -1,0 +1,32 @@
+{{ if eq .Values.storage "nfs" }}
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: {{ template "filebeat.releasename" . }}-nfs-source-pv
+  namespace: {{ .Values.namespace }}
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  claimRef:
+    namespace: {{ .Values.namespace }}
+    name: {{ template "filebeat.releasename" . }}-nfs-source-pvc
+  nfs:
+    server: {{ .Values.nfs.server }}
+    path: {{ .Values.nfs.path }}{{ .Values.path }}/{{ .Release.Name }}
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "filebeat.releasename" . }}-nfs-source-pvc
+  namespace: {{ .Values.namespace }}
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 512Mi
+{{ end }}
