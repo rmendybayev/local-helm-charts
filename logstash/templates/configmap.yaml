@@ -1,0 +1,94 @@
+# This is a simple example of using a config map to create a single page static site.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ template "logstash.releasename" . }}-configmap
+  labels:
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name | quote }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "logstash.name" . }}
+data:
+  logstash.yml: |
+      http.host: "0.0.0.0"
+      path.config: /usr/share/logstash/pipeline
+      ## Disable X-Pack
+      ## see https://www.elastic.co/guide/en/x-pack/current/xpack-settings.html
+      xpack.monitoring.enabled: false
+  logstash.conf: |
+    input {
+      beats {
+        port => "{{ .Values.service.port }}"
+      }
+    }
+    filter {
+      grok {
+        match => ["source","%{GREEDYDATA}/%{GREEDYDATA:filename}"]
+      }
+    }
+    output {
+      largekafka {
+        codec => json
+        bootstrap_servers => "{{ .Values.kafka.brokers }}"
+        acks => ["all"]
+        topic_id => "{{ .Values.kafka.topic }}"
+        message_key => "%{filename}"
+        max_message_segment_bytes => {{ .Values.kafka.segmentsize }}
+        large_message_enabled => "true"
+        segment_serializer => "{{ .Values.kafka.serializer }}"
+      }
+    }
+  nginx.conf: |-
+    input {
+      kafka {
+        bootstrap_servers => "10.210.33.10:9092"
+        topics => ["gf-f8-bigdata-clouddev-nginx-log"]
+      }
+    }
+    filter {
+      if [fileset][module] == "nginx" {
+        if [fileset][name] == "access" {
+          grok {
+            match => { "message" => ["%{IPORHOST:[nginx][access][remote_ip]} - %{DATA:[nginx][access][user_name]} \[%{HTTPDATE:[nginx][access][time]}\] \"%{WORD:[nginx][access][method]} %{DATA:[nginx][access][url]} HTTP/%{NUMBER:[nginx][access][http_version]}\" %{NUMBER:[nginx][access][response_code]} %{NUMBER:[nginx][access][body_sent][bytes]} \"%{DATA:[nginx][access][referrer]}\" \"%{DATA:[nginx][access][agent]}\""] }
+            remove_field => "message"
+          }
+          mutate {
+            add_field => { "read_timestamp" => "%{@timestamp}" }
+          }
+          date {
+            match => [ "[nginx][access][time]", "dd/MMM/YYYY:H:m:s Z" ]
+            remove_field => "[nginx][access][time]"
+          }
+          useragent {
+            source => "[nginx][access][agent]"
+            target => "[nginx][access][user_agent]"
+            remove_field => "[nginx][access][agent]"
+          }
+          geoip {
+            source => "[nginx][access][remote_ip]"
+            target => "[nginx][access][geoip]"
+          }
+        }
+        else if [fileset][name] == "error" {
+          grok {
+            match => { "message" => ["%{DATA:[nginx][error][time]} \[%{DATA:[nginx][error][level]}\] %{NUMBER:[nginx][error][pid]}#%{NUMBER:[nginx][error][tid]}: (\*%{NUMBER:[nginx][error][connection_id]} )?%{GREEDYDATA:[nginx][error][message]}"] }
+            remove_field => "message"
+          }
+          mutate {
+            rename => { "@timestamp" => "read_timestamp" }
+          }
+          date {
+            match => [ "[nginx][error][time]", "YYYY/MM/dd H:m:s" ]
+            remove_field => "[nginx][error][time]"
+          }
+        }
+      }
+    }
+    output {
+      kafka {
+        codec => json
+        bootstrap_servers => "10.210.33.10:9092"
+        topic_id => "gf-f8-bigdata-clouddev-nginx-data"
+      }
+    }

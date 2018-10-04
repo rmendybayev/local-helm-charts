@@ -1,0 +1,31 @@
+replicaCount: 2
+namespace: prod-ingestion-sapphire
+image:
+  repository: fc8kfkp01:5000/globalfoundries/large-logstash
+  tag: 0.1.3.08.01.4
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 5044
+  externalPort: 32223
+
+scaling:
+  cpuPercentage: 80
+  minReplicas: 2
+  maxReplicas: 10
+
+kafka:
+  segmentsize: 102400
+  serializer: com.linkedin.kafka.clients.largemessage.AvroSegmentSerializer
+  topic: "gf-f8-bigdata-fab8-sapphirelog-data-avro"
+  brokers: "fc8kfkp01.gfoundries.com:9092,fc8kfkp02.gfoundries.com:9092,fc8kfkp03.gfoundries.com:9092,fc8kfkp04.gfoundries.com:9092,fc8kfkp05.gfoundries.com:9092"
+
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

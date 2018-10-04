@@ -1,0 +1,69 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ template "logstash.releasename" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ template "logstash.name" . }}
+    chart: {{ template "logstash.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "logstash.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "logstash.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      imagePullSecrets:
+      - name: regcred
+      containers:
+        - name: {{ template "logstash.releasename" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: ES_HEAP_SIZE
+            value: 2024m
+          volumeMounts:
+          - name: config-volume
+            mountPath: /usr/share/logstash/config/logstash.yml
+            subPath: logstash.yml
+          - name: logstash-pipeline-volume
+            mountPath: /usr/share/logstash/pipeline/logstash.conf
+            subPath: logstash.conf
+          - name: logstash-nginx-pipeline
+            mountPath: /usr/share/logstash/pipeline/nginx.conf
+            subPath: nginx.conf
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ template "logstash.releasename" . }}-configmap
+      - name: logstash-pipeline-volume
+        configMap:
+          name: {{ template "logstash.releasename" . }}-configmap
+      - name: logstash-nginx-pipeline
+          configMap:
+            name: {{ template "logstash.releasename" . }}-configmap
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}

@@ -1,0 +1,27 @@
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "logstash.releasename" . }}-auto-scaller
+  namespace: {{ .Values.namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "logstash.releasename" . }}
+  minReplicas: {{ .Values.scaling.minReplicas }}
+  maxReplicas: {{ .Values.scaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: {{ .Values.scaling.cpuPercentage }}
+status:
+  observedGeneration: 1
+  currentReplicas: 1
+  desiredReplicas: 1
+  currentMetrics:
+  - type: Resource
+    resource:
+      name: cpu
+      currentAverageUtilization: 0
+      currentAverageValue: 0

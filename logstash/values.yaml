@@ -1,0 +1,35 @@
+# Default values for logstash.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: fc8nexusq01.aa-dev-us-aws.gfoundries.com:18444/globalfoundries/large-logstash
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 5044
+  externalPort: 32222
+
+scaling:
+  cpuPercentage: 80
+  minReplicas: 1
+  maxReplicas: 10
+
+kafka:
+  segmentsize: 102400
+  serializer: com.linkedin.kafka.clients.largemessage.AvroSegmentSerializer
+  topic: "k8s-sapphire"
+  brokers: "fc8kafka-brokerq00.aa-dev-us-aws.gfoundries.com:9092,fc8kafka-brokerq01.aa-dev-us-aws.gfoundries.com:9092,fc8kafka-brokerq02.aa-dev-us-aws.gfoundries.com:9092"
+
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
