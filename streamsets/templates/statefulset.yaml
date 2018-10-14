@@ -49,10 +49,13 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data
-          #subPath: data
+          subPath: data
         - name: main-config
           mountPath: /etc/sdc/sdc.properties
           subPath: sdc.properties
+        - name: data
+          mountPath: /opt/streamsets-datacollector-{{ .Values.image.tag }}/streamsets-libs
+          subPath: stagelibs
         #- name: output
         #  mountPath: /mnt
         #  subPath: mnt
