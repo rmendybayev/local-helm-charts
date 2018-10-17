@@ -53,6 +53,9 @@ spec:
         - name: main-config
           mountPath: /etc/sdc/sdc.properties
           subPath: sdc.properties
+        - name: main-config
+          mountPath: /opt/streamsets-datacollector-{{ .Values.image.tag }}/libexec/sdc-env.sh
+          subPath: sdc-env.sh
         - name: data
           mountPath: /opt/streamsets-datacollector-{{ .Values.image.tag }}/streamsets-libs
           subPath: stagelibs
